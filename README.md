@@ -54,8 +54,7 @@ To transform forecasted **first differences** into **headline inflation**, cumul
 ![Headline Forecast](inflation_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
 
 **Table of Forecasts for 2025**
-[Inflation
-Foercasts](https://lh3.googleusercontent.com/pw/AP1GczN_sOjFLAtQOZiikSnoI0-jW1S1wWbmm3wJELipiVUAUJnjMDZPkFyPq7CwJrz5IDVVXHQ9aN0_ovyc1llLpDB9bSURZN1_98vvUf0uI6wfXg4UzM_dNCnVg7njpQHWrhid5RoNz0olKQ0L5k1ucXRo=w1156-h832-s-no-gm?authuser=0)
+![Inflation Foercasts](https://lh3.googleusercontent.com/pw/AP1GczN_sOjFLAtQOZiikSnoI0-jW1S1wWbmm3wJELipiVUAUJnjMDZPkFyPq7CwJrz5IDVVXHQ9aN0_ovyc1llLpDB9bSURZN1_98vvUf0uI6wfXg4UzM_dNCnVg7njpQHWrhid5RoNz0olKQ0L5k1ucXRo=w1156-h832-s-no-gm?authuser=0)
 
 
 ### Key findings:
