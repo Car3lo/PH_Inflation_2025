@@ -47,16 +47,16 @@ Using the best-fitting model, monthly inflation forecasts for **May-Dec 2025** w
 **Inflation Forecast Percentage Point Difference (May-Dec 2025)**  
 ![Forecast Difference](inflation_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
 
-Key findings:
-- **May 2025 forecast interval:** `[0.4760%, 2.1029%]`
-- **Average forecasted inflation for the rest of 2025:** **`1.56%` (below BSP target)**
-
 ### Headline Inflation Forecast  
 To transform forecasted **first differences** into **headline inflation**, cumulative summation was applied.
 
 **Forecasted Headline Inflation (May-Dec 2025)**  
 ![Headline Forecast](inflation_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
 
+### Key findings:
+- **May 2025 forecast interval:** `[0.4760%, 2.1029%]`
+- **Average forecasted inflation for the rest of 2025:** **`1.56%` (below BSP target)**
+- 
 ---
 
 🚀 Full details in **[inflation.md](inflation.md)**
