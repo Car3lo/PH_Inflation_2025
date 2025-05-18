@@ -1,0 +1,267 @@
+---
+title: "Inflation 2025 Forecasting"
+author: "Car3lo"
+date: "2025-05-18"
+output: github_document
+---
+
+# Forecasting 2025 PH Inflation Rates
+
+### Load Libraries and Dataset
+```{r}
+library(tidyverse)
+library(forecast)
+library(fpp2)
+library(aTSA)
+library(FinTS)
+library(lmtest)
+setwd("D:/New Documents/UPSE_4-2/portfolio_temp/[132] Remittance and Inflation Forecasts/Inflation")
+
+```
+
+### Creating Objects
+```{r}
+inf <- read.csv("inf_ph.csv")
+inf_ph <- ts(inf[,2], frequency = 12, start = c(2018,1), end = c(2025,4))
+inf_ph
+```
+
+### Plottingg
+```{r}
+autoplot(inf_ph)+
+  xlab("Month")+
+  ylab("Inflation Rate (%)")+
+  ggtitle("Philippine Monthly Headline Inflation Jan 2028 - Apr 2025")
+```
+
+- Inflation had uptrend-peak-downtrend patterns within 2-3 years.
+- This suggests cyclic behavior from it.
+- There may also be a hint of weak seasonality.
+- They also peak and bottom near 7.5% and 2.5% respectively implying corrective policy changes
+
+### Checking for Stationarity
+```{r}
+ggtsdisplay(inf_ph)
+# Augmented Dickey-Fuller (ADF) test
+floor(12*(length(inf_ph)/100)^(1/4))+1 
+adf.test(inf_ph, nlag=12) 
+```
+
+- We will use Type 3 since from the autoplot, the inflation series has cyclic behavior
+- HO: Series has unit-root; non-stationary
+- HA: Series is stationary
+
+- Decision: We reject HO if all p-values of lags up to 12 in the ADF test's selected Type is < 0.05
+- Conclusion: All p-values are above 0.05, so we do not reject HO. The inflation series is non-stationary.
+
+
+### First-Difference Transformation and Checking for Stationarity
+```{r}
+dinf_ph <- diff(inf_ph,1)
+autoplot(dinf_ph)
+adf.test(dinf_ph, nlag=12) 
+```
+
+- We will use Type 1 since from the autoplot, the inflation series seem to have no trend/drift
+- HO: Series has unit-root; non-stationary
+- HA: Series is stationary
+
+- Conclusion: All p-values are below 0.05 (around 0.01) -- we reject Ho. It is now stationary.
+
+
+### ARIMA MODELLING AND RESIDUAL DIAGNOSTICS
+```{r}
+inf_ph_auto <- auto.arima(inf_ph)
+checkresiduals(inf_ph_auto)
+Box.test(residuals(inf_ph_auto), type="Ljung-Box")
+shapiro.test(residuals(inf_ph_auto))
+ArchTest(residuals(inf_ph_auto))
+```
+
+- We fail to reject the Null Hypothesis that the residuals are white noise. This is consistent with the ACF graph.
+- We fail to reject the Null Hypothesis that the residuals are normally distributed. This is consistent with the histogram of its residuals.
+- We fail to reject the Null Hypothesis that the residuals are homoskedastic.
+
+
+### The Model
+- Model suggests ARIMA(3,0,1)(2,0,0)[12] with non-zero mean model.
+- ARIMA(3,0,1) non-seasonal part:
+- - 3 AR Terms (current value depends on past 3 observations)
+- - 0 differencing
+- - 1 MA terms (accounts for single lagged error term)
+
+- ARIMA (2,0,0)[12] seasonal part: 
+- - 2 Seasonal AR Terms (12 months ago with two-lag effect)
+- - 0 seasonal differencing
+- - 0 seasonal MA terms
+- - [12] period of seasonal pattern
+
+- Non-zero includes constant or trend component.
+
+#### Testing the model further
+```{r}
+autoplot(inf_ph_auto)
+coeftest(inf_ph_auto)
+```
+
+- From the z test of coefficients, all are significant (not less than 0) at at least 5% significance level 
+- EXCEPT for AR3 -- the third lag of AR terms do not contribute significantly to the model
+
+
+### Plotting Fitted vs Actual
+```{r}
+inf_ph_auto_fit <- fitted(inf_ph_auto)
+autoplot(inf_ph, series="Actual") +
+  autolayer(inf_ph_auto_fit, series="Fitted") +
+  ggtitle("Actual vs Fitted Inflation") +
+  xlab("Month") + ylab("Inflation Rate (%)")
+```
+
+### Trying simpler models
+```{r}
+# AR(4)
+inf_ph_AR4 <- arima(dinf_ph, order = c(4,0,0))
+
+Box.test(residuals(inf_ph_AR4), type = "Ljung-Box")
+shapiro.test(residuals(inf_ph_AR4))
+ArchTest(residuals(inf_ph_AR4))
+autoplot(inf_ph_AR4)
+coeftest(inf_ph_AR4)
+```
+
+```{r}
+# MA(2)
+inf_ph_MA2 <- arima(dinf_ph, order = c(0, 0, 2))
+
+Box.test(residuals(inf_ph_MA2), type = "Ljung-Box")
+shapiro.test(residuals(inf_ph_MA2))
+ArchTest(residuals(inf_ph_MA2))
+autoplot(inf_ph_MA2)
+coeftest(inf_ph_MA2)
+```
+
+```{r}
+# ARMA(1,1)
+inf_ph_ARMA11 <- arima(dinf_ph, order = c(1,0,1))
+
+Box.test(residuals(inf_ph_ARMA11), type = "Ljung-Box")
+shapiro.test(residuals(inf_ph_ARMA11))
+ArchTest(residuals(inf_ph_ARMA11))
+autoplot(inf_ph_ARMA11)
+coeftest(inf_ph_ARMA11)
+```
+
+### Trying ARMA(1,1)+SAR(1)
+```{r}
+inf_ph_ARMA11_SAR1 <- arima(dinf_ph, order = c(1, 0, 1), seasonal = list(order = c(1, 0, 0), period = 12))
+Box.test(residuals(inf_ph_ARMA11_SAR1), type = "Ljung-Box")
+shapiro.test(residuals(inf_ph_ARMA11_SAR1)) 
+ArchTest(residuals(inf_ph_ARMA11_SAR1))
+autoplot(inf_ph_ARMA11_SAR1)
+coeftest(inf_ph_ARMA11_SAR1)
+```
+
+#### **FOR ARMA(1,1)+SAR(1)
+- At 5% Significance we fail to reject HO (The residuals are white noise)
+- At 5% Significance we fail to reject HO (The residuals are normally distributed)
+- At 5% significance we fail to reject HO (The residuals are homoskedastic)
+- All inverse AR and MA roots are within their unit circles.
+- AR(1), MA(1), and SAR(1) are all significant at atleast 5% significance level.
+- Past values, short-term shocks, and last year's inflation affect current inflation in the series.
+
+
+### Other Models and their Coefficients
+![Table of Equations](https://lh3.googleusercontent.com/pw/AP1GczNy8Xt_28pr7u-lURn7w_235gtxjKz7N-nsURAJY1X3me5IeWgnH9pqI76NjxDJLxcZODSPNqoC1cj7qMeW02z_a0qNMjj2EKfH9QeupaPa-R6g_DA12jA4T248aNPBnMhc9P6_THqpB-TgP9_t0uyW6Xn0qJqDMfhHIw4aCq1wowL92wVAfH-OH6tpBJPq5UVZh1IMF8sQ3JehRk1Iy2-IyyRGNWurOGzL3ZQwr54NzwkeoN79DCMGh4Itpj2K0V3f5DPavWgHif2PHtX7pQQyB-XQPZpR2jFk2vbNXZCo673rvtNWzCi5zegjLAjnV88F5FBom_vnFcxo_v6n5RDso-6CgEilnznHCG4REjqiU1XFGQfRbhxqQ2BEpPyD416XYP73zcx4-wphmjZTO1S8mLkKdV3erwH2LRZhKWeBYvzwFOa1YG6QXk5_7uxMCWzATyuF1F3_vmPeyo0pcpVVJy0DLueNfoISueFeTMckiPK7Djs0BZCbZi_TzdReMQ4m5hY_DCWiBn17ufKtDOF9fkgcEjeMug2Nzc_5krpvEJHIZbnlMjFkygRsiBejm8k00g1s9bNQF72Z14lvkidJf6Mqg6Du-2zmFDttAGCpiabwdjThnzGitBYpAekUeh0pvLfWAkH4uclnZdns7txxCKnRshTJ1XMfRWzuytH0ubG28aeIZ3fB5w8n9EwxU3jd2XOI9svEbvitWGM1Gv3rLNO3-BuMS8vUJhhx76uVFGpalI3ljgw5NK1oxXgjYluYSqRS-vmxdD15YuFDhuusTPgHLph5JBHFaHfIAWMTUxgkzjTtiKBHRsOpE0cTLoTzMkfUwcbvy0LMPiOVw7q5W15ANQU3hJMTvFbRIqoTXdvs5vsnXXkDg1CgFf1Cd_VeBj-_dzIgCqBgppIiPsj_9fUeY90xHlTxxsDbk-DdPFK1e7crgriT3YOYlo_oasbQB0ovAFF-Oa8Rd4BKVOMoZyKoYwTs5SUTMTUw4WF740B16iy07EAOlpNnvrr0taWwWGOntUIgWm-_ATaO_Rzex7IJBqdtCrOiLZApsNWYCETvarnaDwoHVcPTc2dCrlXRb57TbtEYLiab4oA83MMIn1ZDheQAGzCO3ZDME5Rk8zUR5RwQDMJlgNGafAE6VEu-dkZPStv-9-r_VOLsR5MUAJ2bow_-j-YVNkO-=w966-h326-no?authuser=0)
+
+
+### Plotting the Models
+```{r}
+autoplot(dinf_ph, series = "Actual") +
+  autolayer(fitted(inf_ph_AR4), series = "AR(4)") +
+  autolayer(fitted(inf_ph_MA2), series = "MA(2)") +
+  autolayer(fitted(inf_ph_ARMA11), series = "ARMA(1,1)") +
+  autolayer(fitted(inf_ph_ARMA11_SAR1), series = "ARMA(1,1) + SAR(1)") +
+  xlab("Month") + 
+  ylab("Inflation Rate (%)") +
+  ggtitle("Actual vs Fitted Inflation Models (with differencing)")
+```
+- All models seem close to fitting actual differenced inflation values.
+- The closest one seems to be ARMA(1,1) + SAR(1) Model
+
+### Comparing Accuracy
+```{r}
+# RMSE MAE MAPE
+accuracy(inf_ph_auto)
+accuracy(inf_ph_AR4)
+accuracy(inf_ph_MA2)
+accuracy(inf_ph_ARMA11)
+accuracy(inf_ph_ARMA11_SAR1)
+
+# AIC, AICc, BIC
+AIC(inf_ph_auto)
+BIC(inf_ph_auto)
+inf_ph_auto$aicc
+
+Arima(dinf_ph, order = c(4, 0, 0), include.mean = TRUE)
+Arima(dinf_ph, order = c(0, 0, 2), include.mean = TRUE)
+Arima(dinf_ph, order = c(1, 0, 1), include.mean = TRUE)
+Arima(dinf_ph, order = c(1, 0, 1), seasonal = c(1, 0, 0), include.mean = TRUE)
+```
+
+- Although lowest RMSE and MAE belong to autoarima, ARMA(1,1)+SAR(1) has lowest AIC, AICc, BIC.
+- Plus, the RMSE and MAE are pretty close anyway.
+- So we will choose ARMA(1,1)+SAR(1) as our "best fitting" model.
+
+![Accuracy](https://lh3.googleusercontent.com/pw/AP1GczOCPLNycpMJFZHTJUpkRtJfEjbPqO86yns4TTEgI9J6AFV7qLbt4L11zkBqhC9ZIRzrqb7QvQjPXCq2ar7ZeVpNUumKI_FFG2Tm8q5JG1UUBoNKkA-M2Oci0qa451mVgcwqgjD-MkXnR2aUCcLB_k2w=w1817-h703-s-no-gm?authuser=0)
+
+
+### Forecasting and Plotting First Difference
+```{r}
+inf_ph_ARMA11_SAR1_forecast <- forecast::forecast(inf_ph_ARMA11_SAR1, h = 8, level = 95) #conflicts with aTSA
+autoplot(inf_ph_ARMA11_SAR1_forecast) +
+  autolayer(dinf_ph, series = "Actual") +
+  xlab("Month")+
+  ylab("Inflation Rate")+
+  ggtitle("Inflation Forecast Percentage Point Difference, May-Dec 2025")
+```
+
+
+### Plotting Headline Inflation
+```{r}
+# get first differences from object
+diff_forecast <- inf_ph_ARMA11_SAR1_forecast$mean
+diff_lower <- inf_ph_ARMA11_SAR1_forecast$lower[,1]
+diff_upper <- inf_ph_ARMA11_SAR1_forecast$upper[,1]
+
+# convert to headline inflation with april 2025 value (1.4)
+headline_forecast <- 1.4 + cumsum(diff_forecast)
+headline_lower <- 1.4 + cumsum(diff_lower)
+headline_upper <- 1.4 + cumsum(diff_upper)
+
+# make it timeseries
+ts_forecast <- ts(headline_forecast, start = c(2025, 5), frequency = 12)
+ts_lower <- ts(headline_lower, start = c(2025, 5), frequency = 12)
+ts_upper <- ts(headline_upper, start = c(2025, 5), frequency = 12)
+
+# object with class forecast
+fc <- list(mean = ts_forecast,
+           lower = matrix(ts_lower, ncol=1),
+           upper = matrix(ts_upper, ncol=1),
+           level = 95,
+           x = inf_ph)  
+class(fc) <- "forecast"
+
+# plotting time
+autoplot(fc) + 
+  autolayer(inf_ph, series = "Actual") +
+  xlab("Month") +
+  ylab("Headline Inflation Rate (%)") +
+  ggtitle("Forecasted Headline Inflation (May-Dec 2025)")
+```
+
+[Inflation Foercasts](https://lh3.googleusercontent.com/pw/AP1GczN_sOjFLAtQOZiikSnoI0-jW1S1wWbmm3wJELipiVUAUJnjMDZPkFyPq7CwJrz5IDVVXHQ9aN0_ovyc1llLpDB9bSURZN1_98vvUf0uI6wfXg4UzM_dNCnVg7njpQHWrhid5RoNz0olKQ0L5k1ucXRo=w1156-h832-s-no-gm?authuser=0)
+
+### Key Results
+- The 95% Interval Forecast for May 2025 is [0.4760, 2.1029]
+- Average inflation rate for the rest of 2025 (forecasted) is 1.561275 (Not within BSP's Target)
+
